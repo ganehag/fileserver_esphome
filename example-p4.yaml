@@ -1,0 +1,118 @@
+# Known-good reference for Waveshare ESP32-P4-WIFI6 rev1.3 silicon.
+# This is board-specific, not a generic P4 template: the hosted C6 radio,
+# PSRAM, watchdog, LWIP parameters and automatic C6 firmware update below are
+# tuned for this exact board revision.
+#
+# Wi-Fi comes from the onboard ESP32-C6 over SDIO slot 1. The microSD card is
+# on SDMMC slot 0's dedicated pins, so the two SD buses do not conflict.
+# The card's VDD is supplied by on-chip LDO channel 4 on this board.
+#
+# Use a dedicated, already-formatted card. Volumes are discovered
+# automatically, including a tableless ext2 volume or ext2 inside an MBR/GPT
+# partition. The test card has a GPT ext2 partition (music) and a FAT partition
+# (files); both are mounted automatically. Partition the card on a host to limit
+# the region. Nothing here formats or changes the card.
+
+esphome:
+  name: davbox-p4
+  friendly_name: davbox-p4
+
+esp32:
+  variant: esp32p4
+  engineering_sample: true  # your board is rev1.3 (< 3.0)
+  flash_size: 32MB
+  cpu_frequency: 360MHz
+  # The factory C6 firmware does not answer the version-query RPC, so the
+  # update entity's initial setup can block for the 5 s RPC timeout. Give it
+  # enough headroom to time out cleanly instead of tripping the loop WDT.
+  watchdog_timeout: 15s
+  framework:
+    type: esp-idf
+    # IDF's default 5760-byte TCP send buffer capped GET around 11 Mbit/s.
+    # 32 KiB fixed that; 40/64 KiB measured no better. A modest 8 KiB receive
+    # window measured best; 16 KiB still hurt uploads with the async writer.
+    sdkconfig_options:
+      CONFIG_LWIP_TCP_SND_BUF_DEFAULT: "32768"
+      CONFIG_LWIP_TCP_WND_DEFAULT: "8192"
+    advanced:
+      enable_idf_experimental_features: true
+
+# rev1.3 boards have 32 MB of hex PSRAM. The WebDAV GET stream buffer uses it
+# when available and falls back to internal heap otherwise.
+psram:
+  mode: hex
+  speed: 200MHz
+
+# The P4 has no native Wi-Fi; the onboard C6 is the radio over SDIO slot 1.
+esp32_hosted:
+  variant: ESP32C6
+  clk_pin: GPIO18
+  cmd_pin: GPIO19
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  reset_pin: GPIO54
+  slot: 1
+  sdio_frequency: 40MHz
+
+# The Waveshare factory C6 image uses an older ESP-Hosted RPC wire version.
+# Bundle the matching image at build time and flash it over the SDIO OTA
+# channel on first boot; no runtime HTTP/TLS dependency is needed.
+update:
+  - platform: esp32_hosted
+    id: c6_firmware_update
+    type: embedded
+    url: https://esphome.github.io/esp-hosted-firmware/v3.1.0/network_adapter_esp32c6.bin
+    sha256: 4ac31b47eb3bf7e239e657173dcb317433a2cc7799a4ec518aeda9856d06d614
+    on_update_available:
+      then:
+        - update.perform: c6_firmware_update
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # The hosted C6 radio is always on; modem sleep adds latency to each transfer.
+  power_save_mode: NONE
+
+logger:
+  level: DEBUG
+  hardware_uart: UART0
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+external_components:
+  # Local source for development in this repository. In Home Assistant replace
+  # this block with, for example:
+  #   - source:
+  #       type: git
+  #       url: https://github.com/ganehag/fileserver_esphome.git
+  #       ref: v0.1.0
+  #     components: [webdav_filing]
+  - source:
+      type: local
+      path: components
+    components: [webdav_filing]
+
+webdav_filing:
+  http:
+    port: 8080
+  storage:
+    sd:
+      bus: sdmmc
+      clk_pin: GPIO43
+      cmd_pin: GPIO44
+      d0_pin: GPIO39
+      d1_pin: GPIO40
+      d2_pin: GPIO41
+      d3_pin: GPIO42
+      slot: 0
+      width: 4
+      pwr_ldo_channel: 4
+      frequency: 40MHz  # verified on this card; drop to 20MHz if unstable

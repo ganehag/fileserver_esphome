@@ -1,0 +1,94 @@
+WebDAV Filing
+-------------
+
+An ESPHome external component that serves WebDAV from an SD card. Supported
+filesystems are FAT and ext2.
+
+Prepare FAT or ext2 on a host first; ext2 volumes with host-default inode
+counts are supported and use PSRAM for metadata when present. The firmware
+never formats or provisions storage.
+
+
+CONFIGURATION
+
+All component settings are here with their defaults. REQUIRED marks settings
+that must be checked or changed for the board and card.
+
+    webdav_filing:
+      http:
+        port: 8080                          # default
+        base_path: /                        # default; use /dav or similar
+        # auth:                             # optional; omit to disable auth
+        #   type: digest                    # default; digest or basic
+        #   username: !secret dav_username  # REQUIRED with auth
+        #   password: !secret dav_password  # REQUIRED with auth; hidden in config dumps
+      storage:
+        sd:
+          bus: spi              # default; REQUIRED: sdmmc for SDMMC wiring
+          # SPI pins. REQUIRED: set these if your board is not VSPI.
+          clk_pin: 18           # default for spi
+          miso_pin: 19          # default for spi
+          mosi_pin: 23          # default for spi
+          cs_pin: 5             # default for spi
+          # SDMMC pins. Use these instead when bus: sdmmc.
+          # REQUIRED: set these if your board is not Waveshare P4.
+          # clk_pin: 43         # default for sdmmc
+          # cmd_pin: 44         # default for sdmmc
+          # d0_pin: 39          # default for sdmmc
+          # d1_pin: 40          # default for sdmmc, width 4
+          # d2_pin: 41          # default for sdmmc, width 4
+          # d3_pin: 42          # default for sdmmc, width 4
+          frequency: 4MHz       # default
+          slot: 0               # default
+          width: 4              # default
+          pwr_ldo_channel: 0    # default; REQUIRED: 4 on Waveshare P4
+
+Required to check: the SD pins for your wiring, bus: sdmmc for SDMMC wiring,
+and pwr_ldo_channel: 4 on Waveshare P4. Old flat keys and the old server bucket
+are rejected. http.base_path is only an HTTP prefix; the WebDAV root stays /.
+/fs/name is a legacy alias inside the prefix.
+
+
+STORAGE
+
+Every FAT and ext2 volume on the card is mounted automatically. With one
+volume it is served at the share root. With several volumes they appear as
+top-level directories such as /fatdata/ and /davdata/; the virtual root is
+read-only and COPY/MOVE cannot cross volumes. The ext2 /lost+found directory
+is hidden from the share. ext2 uses fixed-size metadata caches, so
+host-formatted volumes up to 2 TiB with 4 KiB blocks are supported without
+RAM scaling by group count.
+
+
+AUTHENTICATION
+
+Authentication is optional and goes under http. One account is supported. Put
+the username and password in secrets.yaml and reference them with !secret; the
+password is marked sensitive so config dumps and logs do not print it. Digest
+is the default; use type: basic only if a client cannot handle Digest. Music
+Assistant sends Basic credentials only, so it needs type: basic. There is no
+TLS, so keep the share on a trusted LAN. Credentials in a URL such as
+http://user:pass@host/ are not used; send them through the Authorization
+header.
+
+
+SECRETS
+
+Copy secrets.example.yaml to secrets.yaml and replace the placeholders. The
+dav_username and dav_password keys are only needed when http.auth is enabled.
+
+
+EXAMPLES
+
+example.yaml is the generic ESP32 SPI example. example-p4.yaml is a
+board-specific reference for Waveshare ESP32-P4-WIFI6 rev1.3. Configurations in
+tests/ are emulator and test fixtures, not user examples.
+
+The published repository is github.com/ganehag/fileserver_esphome. In Home
+Assistant, replace the local source in an example with the pinned git source
+shown in its comment.
+
+
+LICENSE
+
+MIT. See LICENSE. Source files carry SPDX-License-Identifier: MIT.

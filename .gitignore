@@ -1,0 +1,7 @@
+.venv/
+.tools/
+.esphome/
+tests/.gitignore
+secrets.yaml
+__pycache__/
+*.pyc

@@ -1,0 +1,41 @@
+# Test fixture for ext2 smoke tests under Espressif's esp-emulator, not a user
+# board example. The card is prepared on the host by the smoke scripts; this
+# firmware never formats or changes it.
+
+esphome:
+  name: davbox-ext2
+  friendly_name: davbox-ext2
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+wifi:
+  ssid: emulator-smoke
+  password: emulator-smoke-password
+
+logger:
+  level: DEBUG
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [webdav_filing]
+
+webdav_filing:
+  http:
+    port: 8080
+  storage:
+    sd:
+      # esp-emulator is launched with --sd card.img,cs=10.
+      clk_pin: 12
+      miso_pin: 13
+      mosi_pin: 11
+      cs_pin: 10
+      frequency: 4MHz

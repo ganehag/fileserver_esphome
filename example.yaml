@@ -1,0 +1,55 @@
+esphome:
+  name: davbox
+  friendly_name: davbox
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+external_components:
+  # Local source for development in this repository. In Home Assistant replace
+  # this block with, for example:
+  #   - source:
+  #       type: git
+  #       url: https://github.com/ganehag/fileserver_esphome.git
+  #       ref: v0.1.0
+  #     components: [webdav_filing]
+  - source:
+      type: local
+      path: components
+    components: [webdav_filing]
+
+webdav_filing:
+  http:
+    port: 8080
+    # base_path: /dav moves the HTTP prefix without changing the filesystem root.
+    # Optional authentication; uncomment and add the secrets to enable it.
+    # auth:
+    #   type: digest
+    #   username: !secret dav_username
+    #   password: !secret dav_password
+  storage:
+    # Every FAT and ext2 volume on the card is mounted automatically.
+    sd:
+      # Default VSPI pins on classic ESP32; override if your board differs.
+      clk_pin: 18
+      miso_pin: 19
+      mosi_pin: 23
+      cs_pin: 5
+      frequency: 4MHz
